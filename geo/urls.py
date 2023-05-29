@@ -9,7 +9,7 @@ urlpatterns = [
     path("", include(router.urls)),
     path(
         "nearest_place/",
-        PlaceViewSet.as_view({"get": "get_nearest_place"}),
+        PlaceViewSet.as_view({"get": "nearest_place"}),
         name="place-nearest",
     ),
 ]
