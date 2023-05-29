@@ -90,7 +90,8 @@ class PlaceViewSet(viewsets.ModelViewSet):
         current_location = instance.geom
 
         nearest_place = (
-            self.queryset.annotate(distance=Distance("geom", current_location))
+            self.queryset.filter(geom__distance_lte=(current_location, D(m=10000)))
+            .annotate(distance=Distance("geom", current_location))
             .exclude(id=instance.id)
             .order_by("distance")
             .first()
