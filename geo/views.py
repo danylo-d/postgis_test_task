@@ -1,5 +1,6 @@
 from django.contrib.gis.db.models.functions import Distance, Transform
 from django.contrib.gis.geos import Point
+from django.contrib.gis.measure import D
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
@@ -20,7 +21,7 @@ class PlaceViewSet(viewsets.ModelViewSet):
             else super().get_serializer_class()
         )
 
-    MAX_DISTANCE = 500  # 500 km
+    MAX_DISTANCE = 10
 
     @extend_schema(
         parameters=[
@@ -64,10 +65,9 @@ class PlaceViewSet(viewsets.ModelViewSet):
         try:
             point = Point(float(longitude), float(latitude), srid=4326)
             max_distance = self.MAX_DISTANCE
-            spatial_bounds = point.buffer(max_distance)
 
             nearest_place = (
-                self.queryset.filter(geom__intersects=spatial_bounds)
+                self.queryset.filter(geom__dwithin=(point, max_distance))
                 .annotate(distance=Distance("geom", point))
                 .order_by("distance")
                 .first()
@@ -102,12 +102,11 @@ class PlaceViewSet(viewsets.ModelViewSet):
         instance = self.get_object()
         max_distance = self.MAX_DISTANCE
         current_location = instance.geom
-        spatial_bounds = current_location.buffer(max_distance)
 
         nearest_place = (
-            self.queryset.filter(geom__intersects=spatial_bounds)
-            .annotate(distance=Distance("geom", current_location))
+            self.queryset.filter(geom__dwithin=(current_location, max_distance))
             .exclude(id=instance.id)
+            .annotate(distance=Distance("geom", current_location))
             .order_by("distance")
             .first()
         )
@@ -119,6 +118,8 @@ class PlaceViewSet(viewsets.ModelViewSet):
             if nearest_place is not None
             else None
         )
+        if serializer_data["nearest_place"] is None:
+            serializer_data["nearest_place"] = {"message": "No nearest place found."}
 
         return Response(serializer_data["nearest_place"])
 
