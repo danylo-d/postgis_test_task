@@ -1,6 +1,5 @@
-from django.contrib.gis.db.models.functions import Distance
+from django.contrib.gis.db.models.functions import Distance, Transform
 from django.contrib.gis.geos import Point
-from django.contrib.gis.measure import D
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
@@ -15,9 +14,13 @@ class PlaceViewSet(viewsets.ModelViewSet):
     serializer_class = PlaceSerializer
 
     def get_serializer_class(self):
-        if self.action == "list":
-            return PlaceListSerializer
-        return super().get_serializer_class()
+        return (
+            PlaceListSerializer
+            if self.action == "list"
+            else super().get_serializer_class()
+        )
+
+    MAX_DISTANCE = 500  # 500 km
 
     @extend_schema(
         parameters=[
@@ -52,26 +55,36 @@ class PlaceViewSet(viewsets.ModelViewSet):
         longitude = request.query_params.get("longitude")
         latitude = request.query_params.get("latitude")
 
-        if latitude is not None and longitude is not None:
-            try:
-                point = Point(float(longitude), float(latitude), srid=4326)
-                nearest_place = (
-                    self.queryset.filter(geom__distance_lte=(point, D(m=10000)))
-                    .annotate(distance=Distance("geom", point))
-                    .order_by("distance")
-                    .first()
-                )
-                serializer = self.get_serializer(nearest_place)
-                return Response(serializer.data)
-            except ValueError:
-                return Response(
-                    {"error": "Invalid longitude or latitude values provided."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-        else:
+        if latitude is None or longitude is None:
             return Response(
                 {"error": "Longitude and latitude parameters are required."},
                 status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            point = Point(float(longitude), float(latitude), srid=4326)
+            max_distance = self.MAX_DISTANCE
+            spatial_bounds = point.buffer(max_distance)
+
+            nearest_place = (
+                self.queryset.filter(geom__intersects=spatial_bounds)
+                .annotate(distance=Distance("geom", point))
+                .order_by("distance")
+                .first()
+            )
+        except ValueError:
+            return Response(
+                {"error": "Invalid longitude or latitude values provided."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if nearest_place is not None:
+            serializer = self.get_serializer(nearest_place)
+            return Response(serializer.data)
+        else:
+            return Response(
+                {"message": "No nearest place found."},
+                status=status.HTTP_404_NOT_FOUND,
             )
 
     @action(detail=True, methods=["get"])
@@ -85,12 +98,14 @@ class PlaceViewSet(viewsets.ModelViewSet):
         Returns:
         - 200 OK: Nearest place found, serialized data of the nearest place.
         """
-        instance = self.get_object()
 
+        instance = self.get_object()
+        max_distance = self.MAX_DISTANCE
         current_location = instance.geom
+        spatial_bounds = current_location.buffer(max_distance)
 
         nearest_place = (
-            self.queryset.filter(geom__distance_lte=(current_location, D(m=10000)))
+            self.queryset.filter(geom__intersects=spatial_bounds)
             .annotate(distance=Distance("geom", current_location))
             .exclude(id=instance.id)
             .order_by("distance")
@@ -99,9 +114,11 @@ class PlaceViewSet(viewsets.ModelViewSet):
 
         serializer = self.get_serializer(instance)
         serializer_data = serializer.data
-        serializer_data["nearest_place"] = PlaceSerializer(
-            nearest_place, context=self.get_serializer_context()
-        ).data
+        serializer_data["nearest_place"] = (
+            PlaceSerializer(nearest_place, context=self.get_serializer_context()).data
+            if nearest_place is not None
+            else None
+        )
 
         return Response(serializer_data["nearest_place"])
 
