@@ -1,5 +1,6 @@
 from django.contrib.gis.db.models.functions import Distance
 from django.contrib.gis.geos import Point
+from django.contrib.gis.measure import D
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
@@ -55,7 +56,8 @@ class PlaceViewSet(viewsets.ModelViewSet):
             try:
                 point = Point(float(longitude), float(latitude), srid=4326)
                 nearest_place = (
-                    self.queryset.annotate(distance=Distance("geom", point))
+                    self.queryset.filter(geom__distance_lte=(point, D(m=10000)))
+                    .annotate(distance=Distance("geom", point))
                     .order_by("distance")
                     .first()
                 )
