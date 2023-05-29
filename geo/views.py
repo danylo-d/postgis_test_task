@@ -1,9 +1,7 @@
-from django.contrib.gis.db.models.functions import Distance, Transform
+from django.contrib.gis.db.models.functions import Distance
 from django.contrib.gis.geos import Point
-from django.contrib.gis.measure import D
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from rest_framework import viewsets, status
-from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from geo.models import Place
@@ -21,7 +19,7 @@ class PlaceViewSet(viewsets.ModelViewSet):
             else super().get_serializer_class()
         )
 
-    MAX_DISTANCE = 10
+    MAX_DISTANCE = 10  # value in degrees
 
     @extend_schema(
         parameters=[
@@ -39,10 +37,11 @@ class PlaceViewSet(viewsets.ModelViewSet):
             ),
         ]
     )
-    def get_nearest_place(self, request):
+    def nearest_place(self, request, *args, **kwargs):
         """
         Get the nearest existing location in the DB
         to the desired location according to the provided latitude and longitude.
+        Or get the nearest place to the current location of the specified place.
 
         Parameters:
         - longitude (float): Longitude of the desired location.
@@ -53,75 +52,39 @@ class PlaceViewSet(viewsets.ModelViewSet):
         - 400 Bad Request: Longitude and latitude parameters are required.
         - 400 Bad Request: Invalid longitude or latitude values provided.
         """
-        longitude = request.query_params.get("longitude")
-        latitude = request.query_params.get("latitude")
+        longitude = request.query_params.get("longitude", None)
+        latitude = request.query_params.get("latitude", None)
 
-        if latitude is None or longitude is None:
+        if longitude and latitude:
+            try:
+                point = Point(float(longitude), float(latitude), srid=4326)
+                max_distance = self.MAX_DISTANCE
+
+                nearest_place = (
+                    self.queryset.filter(geom__dwithin=(point, max_distance))
+                    .annotate(distance=Distance("geom", point))
+                    .order_by("distance")
+                    .first()
+                )
+
+                if nearest_place is not None:
+                    serializer = self.get_serializer(nearest_place)
+                    return Response(serializer.data)
+                else:
+                    return Response(
+                        {"message": "No nearest place found."},
+                        status=status.HTTP_404_NOT_FOUND,
+                    )
+            except ValueError:
+                return Response(
+                    {"error": "Invalid longitude or latitude values provided."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        else:
             return Response(
                 {"error": "Longitude and latitude parameters are required."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
-        try:
-            point = Point(float(longitude), float(latitude), srid=4326)
-            max_distance = self.MAX_DISTANCE
-
-            nearest_place = (
-                self.queryset.filter(geom__dwithin=(point, max_distance))
-                .annotate(distance=Distance("geom", point))
-                .order_by("distance")
-                .first()
-            )
-        except ValueError:
-            return Response(
-                {"error": "Invalid longitude or latitude values provided."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        if nearest_place is not None:
-            serializer = self.get_serializer(nearest_place)
-            return Response(serializer.data)
-        else:
-            return Response(
-                {"message": "No nearest place found."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
-    @action(detail=True, methods=["get"])
-    def nearest_place(self, request, *args, **kwargs):
-        """
-        Get the nearest place to the current location of the specified place.
-
-        Parameters:
-        - None
-
-        Returns:
-        - 200 OK: Nearest place found, serialized data of the nearest place.
-        """
-
-        instance = self.get_object()
-        max_distance = self.MAX_DISTANCE
-        current_location = instance.geom
-
-        nearest_place = (
-            self.queryset.filter(geom__dwithin=(current_location, max_distance))
-            .exclude(id=instance.id)
-            .annotate(distance=Distance("geom", current_location))
-            .order_by("distance")
-            .first()
-        )
-
-        serializer = self.get_serializer(instance)
-        serializer_data = serializer.data
-        serializer_data["nearest_place"] = (
-            PlaceSerializer(nearest_place, context=self.get_serializer_context()).data
-            if nearest_place is not None
-            else None
-        )
-        if serializer_data["nearest_place"] is None:
-            serializer_data["nearest_place"] = {"message": "No nearest place found."}
-
-        return Response(serializer_data["nearest_place"])
 
     def list(self, request, *args, **kwargs):
         """
