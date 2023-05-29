@@ -41,7 +41,6 @@ class PlaceViewSet(viewsets.ModelViewSet):
         """
         Get the nearest existing location in the DB
         to the desired location according to the provided latitude and longitude.
-        Or get the nearest place to the current location of the specified place.
 
         Parameters:
         - longitude (float): Longitude of the desired location.
