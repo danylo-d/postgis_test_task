@@ -4,21 +4,14 @@ from django.contrib.gis.geos import Point
 from geo.models import Place
 
 
-class PointFieldSerializer(serializers.Field):
-    def to_representation(self, value):
-        if isinstance(value, Point):
-            return {"type": "Point", "coordinates": [value.x, value.y]}
-        return super().to_representation(value)
-
-
 class PlaceSerializer(serializers.ModelSerializer):
     longitude = serializers.FloatField(write_only=True)
     latitude = serializers.FloatField(write_only=True)
-    geom = PointFieldSerializer(read_only=True)
 
     class Meta:
         model = Place
         fields = ["id", "name", "description", "longitude", "latitude", "geom"]
+        read_only_fields = ["geom"]
 
     def create(self, validated_data):
         longitude = validated_data.pop("longitude", None)
