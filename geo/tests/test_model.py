@@ -7,7 +7,9 @@ from geo.models import Place
 class PlaceModelTest(TestCase):
     def setUp(self):
         self.place = Place.objects.create(
-            name="Test Place", description="Test description", geom=Point(10.0, 20.0, srid=4326)
+            name="Test Place",
+            description="Test description",
+            geom=Point(10.0, 20.0, srid=4326),
         )
 
     def test_place_str_method(self):
