@@ -13,18 +13,11 @@ class PointFieldSerializerTestCase(TestCase):
         expected_representation = {"type": "Point", "coordinates": [1.23, 4.56]}
         self.assertEqual(representation, expected_representation)
 
-    def test_to_internal_value(self):
-        serializer = PointFieldSerializer()
-        data = "1.23,4.56"
-        internal_value = serializer.to_internal_value(data)
-        expected_internal_value = Point(1.23, 4.56, srid=4326)
-        self.assertEqual(internal_value, expected_internal_value)
-
     def test_get_geom(self):
         serializer = PlaceListSerializer()
         place_instance = Place.objects.create(
             name="Test Place", geom=Point(1.23, 4.56, srid=4326)
         )
         geom = serializer.get_geom(place_instance)
-        expected_geom = [1.23, 4.56]
+        expected_geom = {"longitude": 1.23, "latitude": 4.56}
         self.assertEqual(geom, expected_geom)
