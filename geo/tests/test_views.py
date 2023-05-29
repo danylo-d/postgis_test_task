@@ -22,6 +22,14 @@ class PlaceViewSetTest(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["name"], self.place.name)
 
+    def test_get_nearest_place_wrong_parameters(self):
+        request = self.factory.get("/places/nearest-place/?latitude=12.34&longitude=test+")
+        response = self.view(request)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.data["error"], "Invalid longitude or latitude values provided."
+        )
+
     def test_get_nearest_place_missing_parameters(self):
         request = self.factory.get("/places/nearest-place")
         response = self.view(request)

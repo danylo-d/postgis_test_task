@@ -46,24 +46,31 @@ class PlaceViewSet(viewsets.ModelViewSet):
         Returns:
         - 200 OK: Nearest place found, serialized data of the nearest place.
         - 400 Bad Request: Longitude and latitude parameters are required.
+        - 400 Bad Request: Invalid longitude or latitude values provided.
         """
         longitude = request.query_params.get("longitude")
         latitude = request.query_params.get("latitude")
 
         if latitude is not None and longitude is not None:
-            point = Point(float(longitude), float(latitude), srid=4326)
-            nearest_place = (
-                self.queryset.annotate(distance=Distance("geom", point))
-                .order_by("distance")
-                .first()
+            try:
+                point = Point(float(longitude), float(latitude), srid=4326)
+                nearest_place = (
+                    self.queryset.annotate(distance=Distance("geom", point))
+                    .order_by("distance")
+                    .first()
+                )
+                serializer = self.get_serializer(nearest_place)
+                return Response(serializer.data)
+            except ValueError:
+                return Response(
+                    {"error": "Invalid longitude or latitude values provided."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        else:
+            return Response(
+                {"error": "Longitude and latitude parameters are required."},
+                status=status.HTTP_400_BAD_REQUEST,
             )
-            serializer = self.get_serializer(nearest_place)
-            return Response(serializer.data)
-
-        return Response(
-            {"error": "Longitude and latitude parameters are required."},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
 
     @action(detail=True, methods=["get"])
     def nearest_place(self, request, *args, **kwargs):
