@@ -6,7 +6,7 @@ Technologies used:
 - Django REST Framework
 - PostgreSQL(with PostGIS extension)
 - Docker
-## Installing using GitHub:
+## Run with docker:
 
 ```shell
   git clone https://github.com/danylo-d/postgis_test_task.git
@@ -16,10 +16,7 @@ Linux/macOS:
   source venv/bin/activate
 Windows: 
   venv\Scripts\activate
-```
 
-## Run with docker:
-```shell
   docker-compose up --build
 ```
 
