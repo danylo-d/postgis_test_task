@@ -39,17 +39,16 @@ class PlaceViewSet(viewsets.ModelViewSet):
     )
     def nearest_place(self, request, *args, **kwargs):
         """
-        Get the nearest existing location in the DB
-        to the desired location according to the provided latitude and longitude.
+        Get the nearest place to the specified location.
 
         Parameters:
-        - longitude (float): Longitude of the desired location.
-        - latitude (float): Latitude of the desired location.
+        - longitude (required): Longitude of the desired location.
+        - latitude (required): Latitude of the desired location.
 
         Returns:
-        - 200 OK: Nearest place found, serialized data of the nearest place.
-        - 400 Bad Request: Longitude and latitude parameters are required.
-        - 400 Bad Request: Invalid longitude or latitude values provided.
+        - 200 OK: Nearest place found, serialized data of the place.
+        - 404 Not Found: No nearest place found.
+        - 400 Bad Request: Invalid longitude or latitude values provided, or missing longitude and latitude parameters.
         """
         longitude = request.query_params.get("longitude", None)
         latitude = request.query_params.get("latitude", None)
@@ -99,60 +98,67 @@ class PlaceViewSet(viewsets.ModelViewSet):
 
     def retrieve(self, request, *args, **kwargs):
         """
-        Get a specific place in the DB.
+        Retrieve a specific place.
 
         Parameters:
         - None
 
         Returns:
-        - 200 OK: Specific place found, serialized data of the place.
+        - 200 OK: Place found, serialized data of the place.
+        - 404 Not Found: Place not found.
         """
         return super().retrieve(request, *args, **kwargs)
 
     def create(self, request, *args, **kwargs):
         """
-        Create a new place in the DB.
+        Create a new place.
 
         Parameters:
         - None
 
         Returns:
-        - 201 Created: New place created, serialized data of the place.
+        - 201 Created: Place created successfully, serialized data of the place.
+        - 400 Bad Request: Invalid data provided for creating a place.
         """
         return super().create(request, *args, **kwargs)
 
     def update(self, request, *args, **kwargs):
         """
-        Update a specific place in the DB.
+        Update a specific place.
 
         Parameters:
         - None
 
         Returns:
-        - 200 OK: Specific place updated, serialized data of the place.
+        - 200 OK: Place updated successfully, serialized data of the updated place.
+        - 400 Bad Request: Invalid data provided for updating the place.
+        - 404 Not Found: Place not found.
         """
         return super().update(request, *args, **kwargs)
 
     def partial_update(self, request, *args, **kwargs):
         """
-        Update a specific place in the DB.
+        Partially update a specific place.
 
         Parameters:
         - None
 
         Returns:
-        - 200 OK: Specific place updated, serialized data of the place.
+        - 200 OK: Place partially updated successfully, serialized data of the updated place.
+        - 400 Bad Request: Invalid data provided for updating the place.
+        - 404 Not Found: Place not found.
         """
         return super().partial_update(request, *args, **kwargs)
 
     def destroy(self, request, *args, **kwargs):
         """
-        Delete a specific place in the DB.
+        Delete a specific place.
 
         Parameters:
         - None
 
         Returns:
-        - 200 OK: Specific place deleted.
+        - 204 No Content: Place deleted successfully.
+        - 404 Not Found: Place not found.
         """
         return super().destroy(request, *args, **kwargs)
